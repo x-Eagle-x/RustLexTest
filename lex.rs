@@ -36,6 +36,14 @@ fn is_identifier(what: char) -> bool {
     what.is_alphanumeric() || what == '_'
 }
 
+fn literal_can_proceed(what: char) -> bool {
+    match what {
+        ' ' | '\n' | '\t' | '\0' => true,
+        '+' | '-' | '/' | '*' => true,
+        _ => false
+    }
+}
+
 fn match_identifier(identifier: String) -> TokenKind {
     match identifier.as_str() {
         "fn" => TokenKind::KwFunction,
@@ -49,7 +57,7 @@ impl Lexer {
         Lexer {index: 0, file_index: 0, input: vec![], line: 1, position: 1, tokens: vec![]}
     }
 
-    fn error(&self, message: String) {
+    fn error(&self, message: &str) {
         eprintln!("Lexing error (F: {} L: {}, C: {}): {}.", self.input[self.file_index].0, self.line, self.position, message);
         std::process::exit(BAD_LEXING);
     }
@@ -67,12 +75,13 @@ impl Lexer {
             '0'..='9' => {
                 kind = TokenKind::NumLiteral;
                 let mut raw_number: String = char.to_string();
-            
-                while self.temp_peek_char(1).is_alphanumeric() {
-                    if self.peek_char(1).is_alphabetic() {
-                        self.error(String::from("illegal character(s) found after number literal"));
-                    }
-                    raw_number.push(self.current_char());
+
+                while self.temp_peek_char(1).is_numeric() {
+                    raw_number.push(self.peek_char(1));
+                }
+
+                if !literal_can_proceed(self.temp_peek_char(1)) {
+                    self.error("illegal character(s) found after number literal");
                 }
 
                 return Token {raw: raw_number, kind: kind};
@@ -82,14 +91,16 @@ impl Lexer {
                 kind = TokenKind::StrLiteral;
                 let mut string_literal: String = String::default();
 
-                while self.temp_peek_char(1) != '"' && self.temp_peek_char(1) != '\0' {
+                while self.temp_peek_char(1) != '"' {
+                    if self.temp_peek_char(1) == '\0' {
+                        self.error("unclosed string");
+                    }
                     string_literal.push(self.peek_char(1));
                 }
                 self.peek_char(1);
 
-                let next_char = self.temp_peek_char(1);
-                if is_identifier(next_char) || next_char == '\"' || next_char == '\'' {
-                    self.error(String::from("illegal character(s) found after string literal"));
+                if !literal_can_proceed(self.temp_peek_char(1)) {
+                    self.error("illegal character(s) found after string literal");
                 }
 
                 return Token {raw: string_literal, kind: TokenKind::StrLiteral};
@@ -101,11 +112,15 @@ impl Lexer {
                     raw_token.push(self.peek_char(1));
                 }
 
+                if !literal_can_proceed(self.temp_peek_char(1)) {
+                    self.error("illegal character(s) found after identifier");
+                }
+
                 kind = match_identifier(raw_token.clone());
                 return Token {raw: raw_token, kind: kind};
             }
 
-            _ => self.error(String::from("unrecognizeable token")),
+            _ => self.error("unrecognizeable token"),
         }
 
         Token {raw: char.to_string(), kind: kind}
@@ -139,7 +154,7 @@ impl Lexer {
                     self.line += 1;
                     self.position = 1;
                 }
-                else if self.current_char() != ' ' {
+                else if !self.current_char().is_whitespace() {
                     let token = self.get_token();
                     self.tokens.push(token);
                 }
