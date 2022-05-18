@@ -87,15 +87,28 @@ impl Lexer {
                 return Token {raw: raw_number, kind: kind};
             },
 
-            '\"' => {
+            '"' => {
                 kind = TokenKind::StrLiteral;
                 let mut string_literal: String = String::default();
 
                 while self.temp_peek_char(1) != '"' {
-                    if self.temp_peek_char(1) == '\0' {
-                        self.error("unclosed string");
+                    match self.temp_peek_char(1) {
+                        '\t' => self.error("use '\\t' instead of raw character"),
+                        '\n' => self.error("missing terminating character (use '\\n' instead of raw character)"),
+                        '\0' => self.error("missing terminating character"),
+                        '\\' => {
+                            string_literal.push(match self.peek_char(2) {
+                                'r' => '\r',
+                                'n' => '\n',
+                                't' => '\t',
+                                '\\' => '\\',
+
+                                ' ' | '\t' | '\n' | '\0' => {self.error("missing escape sequence"); '\0'},
+                                _ => {self.error("unrecognizeable escape sequence"); '\0' /* dummy value */}
+                            });
+                        }
+                        _ => string_literal.push(self.peek_char(1))
                     }
-                    string_literal.push(self.peek_char(1));
                 }
                 self.peek_char(1);
 
@@ -130,7 +143,8 @@ impl Lexer {
         if self.index + peek >= self.input[self.file_index].1.len() {
             return '\0';
         }
-        self.index = self.index + peek;
+        self.index += peek;
+        self.position += 1;
         self.input[self.file_index].1.as_bytes()[self.index] as char
     }
 
