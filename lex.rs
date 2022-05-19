@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_assignments)]
+
 const BAD_LEXING: i32 = 0x01;
 
 pub enum TokenKind {
