@@ -6,5 +6,5 @@ A simple lexer written in Rust for testing purposes.
 - Escape sequences (`\r`, `\n`, `\t`)
 
 #### Known issues
-- ~~Doesn't support CRLF~~
+- ~~Doesn't support CRLF~~ (it does, it's just slow)
 - ~~Bad charater position reporting~~
